@@ -272,7 +272,6 @@ def testGet(env):
     res = env.cmd('hgetall doc')
     env.assertEqual(set(res), set(['foo', 'foo', '__score', '0.1', '__language', 'arabic', '__payload', 'redislabs']))
 
-
 def testDelete(env):
     r = env
     env.assertOk(r.execute_command(
@@ -558,7 +557,6 @@ def testExplain(env):
     expected = """INTERSECT {\n  UNION {\n    hello\n    +hello(expanded)\n  }\n  UNION {\n    world\n    +world(expanded)\n  }\n  EXACT {\n    what\n    what\n  }\n  UNION {\n    UNION {\n      hello\n      +hello(expanded)\n    }\n    UNION {\n      world\n      +world(expanded)\n    }\n  }\n  UNION {\n    NUMERIC {10.000000 <= @bar <= 100.000000}\n    NUMERIC {200.000000 <= @bar <= 300.000000}\n  }\n}\n"""
     env.assertEqual(res, expected)
 
-
     # expected = ['INTERSECT {', '  UNION {', '    hello', '    <HL(expanded)', '    +hello(expanded)', '  }', '  UNION {', '    world', '    <ARLT(expanded)', '    +world(expanded)', '  }', '  EXACT {', '    what', '    what', '  }', '  UNION {', '    UNION {', '      hello', '      <HL(expanded)', '      +hello(expanded)', '    }', '    UNION {', '      world', '      <ARLT(expanded)', '      +world(expanded)', '    }', '  }', '  UNION {', '    NUMERIC {10.000000 <= @bar <= 100.000000}', '    NUMERIC {200.000000 <= @bar <= 300.000000}', '  }', '}', '']
     if env.is_cluster():
         raise unittest.SkipTest()
@@ -816,7 +814,6 @@ def testSortByWithoutSortable(env):
 
         # test partial
 
-
 def testNot(env):
     r = env
     env.assertOk(r.execute_command(
@@ -999,7 +996,6 @@ def testExact(env):
     env.assertEqual(1, res[0])
     env.assertEqual("doc2", res[1])
 
-
 def testGeoErrors(env):
     env.expect('flushall')
     env.expect('ft.create idx ON HASH schema name text location geo').equal('OK')
@@ -1177,6 +1173,23 @@ def testInfields(env):
     env.assertEqual(2, res[0])
     env.assertEqual("doc2", res[1])
     env.assertEqual("doc1", res[2])
+
+def test_multiTextFields(env):
+  'Test fieldmask for over 32 fields'
+  num_fields = 100
+  
+  args_list = ['FT.CREATE', 'idx', 'SCHEMA']
+  for i in range(num_fields):
+    args_list.extend([i, 'TEXT'])
+  env.expect(*args_list).ok()
+
+  for i in range(num_fields):
+    env.expect('HSET', i, i, 'hello').equal(1)
+
+  env.expect('FT.SEARCH', 'idx', 'hello', 'LIMIT', 0, 0).equal([num_fields])
+
+  for i in range(num_fields):
+    env.expect('FT.SEARCH', 'idx', '@%d:hello' % i, 'NOCONTENT').equal([1, str(i)])
 
 def testScorerSelection(env):
     r = env
@@ -1823,10 +1836,8 @@ def testUninitSortvector(env):
     for x in range(10):
         env.broadcast('DEBUG RELOAD')
 
-
 def normalize_row(row):
     return to_dict(row)
-
 
 def assertAggrowsEqual(env, exp, got):
     env.assertEqual(exp[0], got[0])
@@ -1975,7 +1986,6 @@ def testReplaceReload(env):
     doc = to_dict(env.cmd('FT.GET', 'idx2', 'doc2'))
     env.assertEqual('s200', doc['textfield'])
     env.assertEqual('1090', doc['numfield'])
-
 
 # command = 'FT.CREATE idx SCHEMA '
 # for i in range(255):
@@ -2129,7 +2139,6 @@ def testAlias(env):
     env.expect('ft.aliasdel', 'myIndex', 'yourIndex').raiseError()
     env.expect('ft.aliasdel', 'non_existing_alias').raiseError()
 
-
 def testNoCreate(env):
     env.cmd('ft.create', 'idx', 'ON', 'HASH', 'schema', 'f1', 'text')
     env.expect('ft.add', 'idx', 'schema', 'f1').raiseError()
@@ -2279,7 +2288,6 @@ def testPrefixDeletedExpansions(env):
     r = env.cmd('ft.search', 'idx', '@txt1:term* @tag1:{tag*}')
     env.assertEqual(toSortedFlatList([1, 'doc_XXX', ['txt1', 'termZZZ', 'tag1', 'tagZZZ']]), toSortedFlatList(r))
 
-
 def testOptionalFilter(env):
     env.cmd('ft.create', 'idx', 'ON', 'HASH', 'schema', 't1', 'text')
     for x in range(100):
@@ -2289,7 +2297,6 @@ def testOptionalFilter(env):
     # print(r)
 
     r = env.cmd('ft.search', 'idx', '~(word20 => {$weight: 2.0})')
-
 
 def testIssue736(env):
     #for new RS 2.0 ft.add does not return certian errors
@@ -2788,7 +2795,6 @@ def testErrorOnOpperation(env):
     err = env.cmd('ft.aggregate', 'idx', '@test:[0..inf]', 'APPLY', '!@test', 'as', 'a')[1]
     assertEqualIgnoreCluster(env, type(err[0]), redis.exceptions.ResponseError)
 
-
 def testSortkeyUnsortable(env):
     env.cmd('ft.create', 'idx', 'ON', 'HASH', 'schema', 'test', 'text')
     env.cmd('ft.add', 'idx', 'doc1', 1, 'fields', 'test', 'foo')
@@ -2796,7 +2802,6 @@ def testSortkeyUnsortable(env):
         'load', '1', '@test',
         'sortby', '1', '@test')
     env.assertEqual([1, '$foo', ['test', 'foo']], rv)
-
 
 def testIssue919(env):
     # This only works if the missing field has a lower sortable index
@@ -2806,7 +2811,6 @@ def testIssue919(env):
     env.cmd('ft.add', 'idx', 'doc1', 1, 'fields', 'n1', 42)
     rv = env.cmd('ft.search', 'idx', '*', 'sortby', 't1', 'desc')
     env.assertEqual([1L, 'doc1', ['n1', '42']], rv)
-
 
 def testIssue1074(env):
     # Ensure that sortable fields are returned in their string form from the
@@ -2833,14 +2837,12 @@ def testIssue1085(env):
     res = env.cmd('FT.SEARCH', 'issue1085', '@bar:[8 8]')
     env.assertEqual(toSortedFlatList(res), toSortedFlatList([1, 'document_8', ['foo', 'foo8', 'bar', '8']]))
 
-
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     from itertools import izip_longest
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
     args = [iter(iterable)] * n
     return izip_longest(fillvalue=fillvalue, *args)
-
 
 def to_dict(r):
     return {r[i]: r[i + 1] for i in range(0, len(r), 2)}
@@ -2886,7 +2888,6 @@ def testUnseportedSortableTypeErrorOnTags(env):
     res = env.cmd('FT.SEARCH idx *')
     env.assertEqual(toSortedFlatList(res), toSortedFlatList([1L, 'doc1', ['f1', 'foo1', 'f2', '2', 'f3', 'foo2', 'f4', 'foo2']]))
 
-
 def testIssue1158(env):
     env.cmd('FT.CREATE idx ON HASH SCHEMA txt1 TEXT txt2 TEXT txt3 TEXT')
 
@@ -2930,7 +2931,6 @@ def testIssue1184(env):
         env.assertEqual(d['inverted_sz_mb'], '0')
         env.assertEqual(d['num_records'], '0')
 
-
         value = '42'
         env.assertOk(env.execute_command('FT.ADD idx doc0 1 FIELD field ' + value))
         doc = env.cmd('FT.SEARCH idx *')
@@ -2962,7 +2962,6 @@ def testIndexListCommand(env):
     env.expect('FT.CREATE idx3 ON HASH SCHEMA n NUMERIC').ok()
     res = env.cmd('FT._LIST')
     env.assertEqual(set(res), set(['idx2', 'idx3']))
-
 
 def testIssue1208(env):
     env.cmd('FT.CREATE idx ON HASH SCHEMA n NUMERIC')
